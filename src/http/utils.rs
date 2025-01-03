@@ -1,5 +1,5 @@
 use std::{collections::HashMap, io::{BufRead, BufReader, Read, Write}, net::TcpStream, usize};
-use super::http::HttpRequest;
+use super::http::{HttpMethod, HttpRequest};
 
 pub(crate) fn get_status_data(status_line:String)->Result<(String, String, String), String>{
   let mut status_split = status_line.split(" ");
@@ -73,7 +73,7 @@ pub(crate) fn handle_request(stream:&mut TcpStream)->Result<HttpRequest, String>
 
     let request = HttpRequest {
       header:header,
-      method:method,
+      method:HttpMethod::from_str(&method),
       version:version,
       path:path,
       body:body,

@@ -1,9 +1,11 @@
-use std::{collections::HashMap, fs::{self, read_to_string}, io::Write, net::{TcpListener, TcpStream}};
+use std::{collections::HashMap, fs::{self, read_to_string, File}, io::{BufReader, Read, Write}, net::{TcpListener, TcpStream}};
 
-use super::{http::HttpRequest, utils::handle_request};
+use crate::http::http::HttpMethod;
+
+use super::{http::{HttpRequest, HttpResponse}, utils::handle_request};
 
 
-type RouteFn = fn(HttpRequest)->String;
+type RouteFn = fn(HttpRequest, &mut HttpResponse);
 type Routes = HashMap<String, RouteFn>;
 pub struct Server {
   pub port:String,
@@ -44,19 +46,25 @@ impl Server {
           let http_request = handle_request(&mut stream);
           match http_request {
             Ok(http_request)=>{
-              match http_request.method.as_str() {
-                "GET"=>{
-                  let path = &http_request.path;
+              match http_request.method {
+                HttpMethod::GET=>{
+                  let path = http_request.path.clone();
+                  let mut http_response = HttpResponse::new();
                   if let Some(public) = &self.public {
                     let path = &path[1..];
                     if path.starts_with(public) {
-                      self.send_response(stream, http_request);
+                      self.serve_static_files(path, http_request, stream, http_response);
+                      // self.send_response(stream, http_request, http_response);
                       continue;
                     }
                   }
-                  if let Some(fun) = self.get_routes.get(path){
-                    let content = fun(http_request);
+                  if let Some(fun) = self.get_routes.get(&path){
+                    fun(http_request, &mut http_response);
                     let status_line = "HTTP/1.1 200 Ok";
+                    let content = match http_response.body {
+                      Some(body)=>body,
+                      None=>"".to_string(),
+                    };
                     let length = content.len();
                     let response = format!("{status_line}\r\nContent-Length: {length}\r\n\r\n{content}");
                     stream.write_all(response.as_bytes()).unwrap();
@@ -95,8 +103,33 @@ impl Server {
       println!("connection established");
     }
   }
-  pub fn send_response(&self, mut stream:TcpStream, request:HttpRequest) {
-    let status_line = "HTTP/1.1 200 OK";
+  pub fn serve_static_files(&self, path:&str, request:HttpRequest, mut stream:TcpStream, mut response:HttpResponse){
+    let file = read_to_string(path);
+    match file {
+      Ok(content)=>{
+        let status_line = format!("HTTP/1.1 {}", response.status);
+        let length = content.len();
+        response.setHeader("Content-Length".to_string(), length.to_string());
+        let mut header = String::from("");
+        for (key, value) in response.header.iter() {
+          let head_str = format!("\r\n{key}:{value}");
+          header.push_str(&head_str);
+        }
+        let response = format!("{status_line}{header}\r\n\r\n{content}");
+        stream.write_all(response.as_bytes()).unwrap();
+      },
+      _ => {
+        let status_line = "HTTP/1.1 404 Not Found";
+        let content = format!("File Not Found!");
+        let lenght = content.len();
+        let response = format!("{status_line}\r\nContent-Length: {lenght}\r\n\r\n{content}");
+        stream.write_all(response.as_bytes()).unwrap();
+      }
+    }
+  }
+  pub fn send_response(&self, mut stream:TcpStream, request:HttpRequest, response:HttpResponse) {
+    let status = response.status;
+    let status_line = format!("HTTP/1.1 {status}");
     // let method = request.method;
     // let path = request.path;
     // let version = request.version;
