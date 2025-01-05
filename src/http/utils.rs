@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io::{BufRead, BufReader, Read, Write}, net::TcpStream, usize};
+use std::{collections::HashMap, io::{BufRead, BufReader, Read, Write}, net::TcpStream, path::Path, usize};
 use super::http::{HttpMethod, HttpRequest};
 
 pub(crate) fn get_status_data(status_line:String)->Result<(String, String, String), String>{
@@ -45,7 +45,7 @@ pub(crate) fn handle_request(stream:&mut TcpStream)->Result<HttpRequest, String>
         Some(value)=>value.to_string(),
         _ => "".to_string(),
       };
-      header.insert(key, value);
+      header.insert(key.trim().to_string(), value.trim().to_string());
     }
     let content_lenght:usize = match header.get("Content-Length") {
       Some(value)=>{
@@ -83,4 +83,27 @@ pub(crate) fn handle_request(stream:&mut TcpStream)->Result<HttpRequest, String>
     println!("http status line not found");
     return Err("http status line not found".to_string());
   }
+}
+
+pub(crate) fn get_file_content(file_path:&str)->&'static str {
+  let mime_types: HashMap<&str, &str> = HashMap::from([
+        ("html", "text/html"),
+        ("css", "text/css"),
+        ("js", "application/javascript"),
+        ("json", "application/json"),
+        ("mp4", "video/mp4"),
+        ("png", "image/png"),
+        ("jpg", "image/jpeg"),
+        ("jpeg", "image/jpeg"),
+        ("gif", "image/gif"),
+        ("svg", "image/svg+xml"),
+        ("ico", "image/x-icon"),
+        ("txt", "text/plain"),
+    ]);
+  Path::new(file_path)
+    .extension()
+    .and_then(|ext| ext.to_str())
+    .and_then(|ext| mime_types.get(ext))
+    .copied().unwrap_or("application/octet-stream")
+
 }
