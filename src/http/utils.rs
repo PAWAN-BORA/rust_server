@@ -64,8 +64,7 @@ pub(crate) fn handle_request(stream:&mut TcpStream)->Result<HttpRequest, String>
       match buf_reader.read_exact(&mut body_vec) {
         Ok(size)=>size,
         Err(err)=>{
-          println!("Error in reading body: {err}");
-          return Err("Error in reading body: {err}".to_string());
+          return Err(format!("Error in reading body: {err}"));
         }
       };
       body = Some(String::from_utf8(body_vec).unwrap());
@@ -80,7 +79,6 @@ pub(crate) fn handle_request(stream:&mut TcpStream)->Result<HttpRequest, String>
     };
     return Ok(request);
   } else {
-    println!("http status line not found");
     return Err("http status line not found".to_string());
   }
 }

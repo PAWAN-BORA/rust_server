@@ -109,7 +109,7 @@ impl HttpResponse {
   pub fn send(&mut self, body:String) {
     self.body = Some(body);
   }
-  pub fn setHeader(&mut self, key:String, value:String){
+  pub fn set_header(&mut self, key:String, value:String){
     self.header.insert(key, value);
   }
 }
