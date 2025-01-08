@@ -7,7 +7,7 @@ pub enum HttpMethod {
   PUT,
   PATCH,
   DELETE,
-  OPTION,
+  OPTIONS,
   HEAD,
   OTHER(String)
 }
@@ -20,7 +20,7 @@ impl HttpMethod {
       "PUT" => HttpMethod::PUT,
       "PATCH" => HttpMethod::PATCH,
       "DELETE" => HttpMethod::DELETE,
-      "OPTION" => HttpMethod::OPTION,
+      "OPTIONS" => HttpMethod::OPTIONS,
       "HEAD" => HttpMethod::HEAD,
       _ => HttpMethod::OTHER(method.to_string()),
         
@@ -35,7 +35,7 @@ impl Display for HttpMethod {
            HttpMethod::PUT => write!(f, "PUT"),
            HttpMethod::PATCH => write!(f, "PATCH"),
            HttpMethod::DELETE => write!(f, "DELETE"),
-           HttpMethod::OPTION => write!(f, "OPTION"),
+           HttpMethod::OPTIONS => write!(f, "OPTIONS"),
            HttpMethod::HEAD => write!(f, "HEAD"),
            HttpMethod::OTHER(method) => write!(f, "{method}"),
         }

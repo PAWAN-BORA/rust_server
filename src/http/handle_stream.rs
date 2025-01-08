@@ -20,14 +20,33 @@ impl HandleStream {
     match handle_request(&mut self.stream) {
       Ok(http_request)=>{
         match http_request.method {
+          HttpMethod::OPTIONS=> {
+            self.handle_option_request();
+          }
           HttpMethod::GET => {
             self.handle_get_request(http_request);
           }
           HttpMethod::POST=> {
             self.handle_post_request(http_request);
           }
-          _ =>{
-            self.not_found("Method not found");
+          HttpMethod::DELETE=> {
+            self.not_found("Delete method not found!");
+          }
+          HttpMethod::PUT=> {
+            self.not_found("PUt method not found");
+          }
+          HttpMethod::HEAD=> {
+            let mut response = HttpResponse::new();
+            response.status = HttpStatusCode::NoContent;
+            let header = self.get_header(&response);
+            self.send_response(header.as_bytes());
+          }
+          HttpMethod::PATCH=> {
+            self.not_found("Patch method not found!");
+          }
+          HttpMethod::OTHER(val) =>{
+            let method_str = format!("{} method not found!", val);
+            self.not_found(&method_str);
           }
         } 
       }
@@ -102,12 +121,12 @@ impl HandleStream {
     if let Some(fun) = fun {
       let mut response = HttpResponse::new();
       fun(request, &mut response);
-      let headers = self.get_header(&response);
       let content = match &response.body {
         Some(body)=>body.clone(),
         None=>"".to_string()
       };
       response.set_header("Content-Length".to_string(), content.len().to_string());
+      let headers = self.get_header(&response);
       self.send_response(headers.as_bytes());
       self.send_response(content.as_bytes());
     } else if route.is_empty() {
@@ -115,6 +134,12 @@ impl HandleStream {
     } else {
       self.server_error("Error on finding routes!");
     }
+  }
+  fn handle_option_request(&mut self){
+    let mut response = HttpResponse::new();
+    response.status = HttpStatusCode::NoContent;
+    let headers = self.get_header(&response);
+    self.send_response(headers.as_bytes());
   }
   fn get_range(&self, request:&HttpRequest)->Option<(u64, u64)>{
     let chunk_size = 1024*1024*1;
