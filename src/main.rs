@@ -26,7 +26,9 @@ fn send_json(request:HttpRequest, response:&mut HttpResponse){
 fn hold_server(request:HttpRequest, response:&mut HttpResponse){
   let method = request.method;
   let path = request.path;
-  thread::sleep(Duration::from_secs(10));
-  response.send(format!("{method} {path} waiting for 5 sec"));
+  response.set_header("Access-Control-Allow-Origin".to_string(), "*".to_string());
+  response.set_header("Content-Security-Policy".to_string(), "*".to_string());
+  thread::sleep(Duration::from_secs(20));
+  response.send(format!("{method} {path} waiting for 20 sec"));
 }
 

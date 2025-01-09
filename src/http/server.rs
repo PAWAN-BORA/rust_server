@@ -1,6 +1,6 @@
 use std::{collections::HashMap, net::TcpListener, sync::{Arc, RwLock}, thread};
 
-use super::{handle_stream::{HandleStream}, http::{HttpRequest, HttpResponse}};
+use super::{handle_stream::HandleStream, http::{HttpRequest, HttpResponse}, thread_pool::{self, ThreadPool}};
 
 
 pub(crate) type RouteFn = fn(HttpRequest, &mut HttpResponse);
@@ -10,6 +10,7 @@ pub struct Server {
   pub public:Option<String>,
   pub get_routes:Routes,
   pub post_routes:Routes,
+  pub thread_num:usize,
   // delete_routes:Routes,
   // update_routes:Routes,
   
@@ -22,6 +23,7 @@ impl Server {
       public:None,
       get_routes:HashMap::new(),
       post_routes:HashMap::new(),
+      thread_num:4,
       // delete_routes:HashMap::new(),
       // update_routes:HashMap::new(),
     }
@@ -38,10 +40,11 @@ impl Server {
   pub fn run(self) {
     let addr = format!("127.0.0.1:{}", &self.port);
     let listener = TcpListener::bind(addr).unwrap();
+    let thread_pool = ThreadPool::new(self.thread_num);
     let server = Arc::new(RwLock::new(self));
     for stream in listener.incoming() {
       let server = Arc::clone(&server);
-      thread::spawn(move ||{
+      thread_pool.excute(move ||{
         match stream {
           Ok(stream)=>{
             HandleStream::new(stream, server).parse();
@@ -50,6 +53,7 @@ impl Server {
         }
       });
     }
+    println!("Shutting down.");
   }
 }
 
