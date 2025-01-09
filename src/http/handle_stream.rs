@@ -104,7 +104,7 @@ impl HandleStream {
       self.send_response(content.as_bytes());
       // return;
     } else if route.is_empty() {
-      self.not_found("File Not Found!");
+      self.not_found("Route Not Available!");
     } else {
       self.serve_static_files(&route, request);
 

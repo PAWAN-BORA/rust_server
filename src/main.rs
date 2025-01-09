@@ -24,11 +24,12 @@ fn send_json(request:HttpRequest, response:&mut HttpResponse){
   response.send(format!("{}", body));
 }
 fn hold_server(request:HttpRequest, response:&mut HttpResponse){
+  println!("{:?}", request.params);
   let method = request.method;
   let path = request.path;
   response.set_header("Access-Control-Allow-Origin".to_string(), "*".to_string());
-  response.set_header("Content-Security-Policy".to_string(), "*".to_string());
-  thread::sleep(Duration::from_secs(20));
+  response.set_header("Content-Security-Policy".to_string(), "connect-src 'self' *".to_string());
+  thread::sleep(Duration::from_secs(2));
   response.send(format!("{method} {path} waiting for 20 sec"));
 }
 

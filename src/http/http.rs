@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt::Display};
 
 
+#[derive(Debug)]
 pub enum HttpMethod {
   GET,
   POST,
@@ -41,11 +42,13 @@ impl Display for HttpMethod {
         }
     } 
 }
+#[derive(Debug)]
 pub struct HttpRequest {
   pub method:HttpMethod,
   pub version:String,
   pub path:String,
   pub header:HashMap<String, String>,
+  pub params:HashMap<String, String>,
   pub body:Option<String>
 }
 

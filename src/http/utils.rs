@@ -1,7 +1,9 @@
 use std::{collections::HashMap, io::{BufRead, BufReader, Read, Write}, net::TcpStream, path::Path, usize};
+use urlencoding::decode;
+
 use super::http::{HttpMethod, HttpRequest};
 
-pub(crate) fn get_status_data(status_line:String)->Result<(String, String, String), String>{
+fn get_status_data(status_line:String)->Result<(String, String, String), String>{
   let mut status_split = status_line.split(" ");
   let method = match status_split.next() {
     Some(method)=>method.to_string(),
@@ -9,7 +11,7 @@ pub(crate) fn get_status_data(status_line:String)->Result<(String, String, Strin
       return Err("Method Not Found!".to_string());
     }
   };
-  let path = match status_split.next() {
+  let url = match status_split.next() {
     Some(path)=>path.to_string(),
     None => {
       return Err("Http Version Not Found!".to_string());
@@ -21,14 +23,35 @@ pub(crate) fn get_status_data(status_line:String)->Result<(String, String, Strin
       return Err("Http Version Not Found!".to_string());
     }
   };
-  return Ok((method, path, version));
+  return Ok((method, url, version));
 }
+fn get_path_param(url:&String)->(String, HashMap<String, String>) {
+  let mut params = HashMap::new();
+  if let Some((path, param_str)) = url.split_once("?") {
+    let param_str = match decode(param_str){
+      Ok(val)=>{val.into()}
+      Err(_)=>{String::from("")}
+    };
+    if !param_str.is_empty() {
+      for param in param_str.split("&") {
+        if let Some((key, value)) = param.split_once("="){
+          params.insert(key.trim().to_string(), value.trim().to_string());
+        };
+      }
+    }
+    return (path.to_string(), params);
+  } else {
+    return (url.to_string(), params);
+  };
+}
+
 pub(crate) fn handle_request(stream:&mut TcpStream)->Result<HttpRequest, String>{
   let mut buf_reader = BufReader::new(stream);
   let mut first_line = String::new();
   let line_res = buf_reader.read_line(&mut first_line);
   if let Ok(_status) = line_res {
-    let (method, path, version) = get_status_data(first_line)?; 
+    let (method, url, version) = get_status_data(first_line)?; 
+    let (path, params) = get_path_param(&url);
     let mut header:HashMap<String, String> = HashMap::new();
     loop {
       let mut line = String::new();
@@ -72,6 +95,7 @@ pub(crate) fn handle_request(stream:&mut TcpStream)->Result<HttpRequest, String>
 
     let request = HttpRequest {
       header:header,
+      params:params,
       method:HttpMethod::from_str(&method),
       version:version,
       path:path,
