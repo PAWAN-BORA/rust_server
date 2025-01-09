@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display};
+use std::{collections::HashMap, fmt::Display, u8};
 
 
 #[derive(Debug)]
@@ -36,9 +36,7 @@ impl Display for HttpMethod {
            HttpMethod::PUT => write!(f, "PUT"),
            HttpMethod::PATCH => write!(f, "PATCH"),
            HttpMethod::DELETE => write!(f, "DELETE"),
-           HttpMethod::OPTIONS => write!(f, "OPTIONS"),
-           HttpMethod::HEAD => write!(f, "HEAD"),
-           HttpMethod::OTHER(method) => write!(f, "{method}"),
+           HttpMethod::OPTIONS => write!(f, "OPTIONS"), HttpMethod::HEAD => write!(f, "HEAD"), HttpMethod::OTHER(method) => write!(f, "{method}"),
         }
     } 
 }
@@ -49,7 +47,39 @@ pub struct HttpRequest {
   pub path:String,
   pub header:HashMap<String, String>,
   pub params:HashMap<String, String>,
-  pub body:Option<String>
+  body:Vec<u8>
+}
+
+impl HttpRequest {
+  pub fn new(
+    method:String, 
+    version:String,
+    path:String,
+    header:HashMap<String, String>,
+    params:HashMap<String, String>,
+    body:Vec<u8>
+  ) ->Self {
+    HttpRequest {
+      method:HttpMethod::from_str(&method),
+      version,
+      path,
+      header,
+      params,
+      body:body
+    }
+  }
+  pub fn body_as_str(&self)->&str {
+    match std::str::from_utf8(&self.body){
+      Ok(val)=>val,
+      Err(err)=>{
+        println!("Error on converting uft8 string: {}", err);
+        ""
+      }
+    }
+  }
+  pub fn body_as_vec(&self)->&Vec<u8> {
+    return self.body.as_ref();
+  }
 }
 
 pub enum HttpStatusCode{

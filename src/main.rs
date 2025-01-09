@@ -11,17 +11,15 @@ fn main() {
 }
 
 fn get_name(request:HttpRequest, response:&mut HttpResponse){
+  // let body = request.body_as_vec().unwrap();
   let method = request.method;
   let version = request.version;
   response.send(format!("{method} {version} World"));
 }
 
 fn send_json(request:HttpRequest, response:&mut HttpResponse){
-  let body = match request.body {
-    Some(body)=>body,
-    None => "".to_string()
-  };
-  response.send(format!("{}", body));
+  let body = request.body_as_str();
+  response.send(body.to_string());
 }
 fn hold_server(request:HttpRequest, response:&mut HttpResponse){
   println!("{:?}", request.params);

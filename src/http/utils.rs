@@ -81,26 +81,18 @@ pub(crate) fn handle_request(stream:&mut TcpStream)->Result<HttpRequest, String>
       },
       None => 0,
     };
-    let mut body:Option<String>= None;
+    let mut body = vec![0; content_lenght];
     if content_lenght>0 {
-      let mut body_vec = vec![0; content_lenght];
-      match buf_reader.read_exact(&mut body_vec) {
+      match buf_reader.read_exact(&mut body) {
         Ok(size)=>size,
         Err(err)=>{
           return Err(format!("Error in reading body: {err}"));
         }
       };
-      body = Some(String::from_utf8(body_vec).unwrap());
+      // body = Some(String::from_utf8(body_vec).unwrap());
     }
 
-    let request = HttpRequest {
-      header:header,
-      params:params,
-      method:HttpMethod::from_str(&method),
-      version:version,
-      path:path,
-      body:body,
-    };
+    let request = HttpRequest::new(method, version, path, header, params, body);
     return Ok(request);
   } else {
     return Err("http status line not found".to_string());
