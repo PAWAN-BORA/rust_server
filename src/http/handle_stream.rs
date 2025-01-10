@@ -21,19 +21,19 @@ impl HandleStream {
       Ok(http_request)=>{
         match http_request.method {
           HttpMethod::OPTIONS=> {
-            self.handle_option_request();
+            self.send_option_response();
           }
           HttpMethod::GET => {
-            self.handle_get_request(http_request);
+            self.send_get_response(http_request);
           }
           HttpMethod::POST=> {
-            self.handle_post_request(http_request);
+            self.send_general_response(http_request);
           }
           HttpMethod::DELETE=> {
-            self.not_found("Delete method not found!");
+            self.send_general_response(http_request);
           }
           HttpMethod::PUT=> {
-            self.not_found("PUt method not found");
+            self.send_get_response(http_request);
           }
           HttpMethod::HEAD=> {
             let mut response = HttpResponse::new();
@@ -57,14 +57,14 @@ impl HandleStream {
     
   }
 
-  fn get_path_fun(&self, route_name:&str, request:&HttpRequest)->Result<(String, Option<RouteFn>), String> {
+  fn get_path_fun(&self, request:&HttpRequest)->Result<(String, Option<RouteFn>), String> {
     let server = match self.server.read() {
       Ok(server)=>server,
       Err(_err)=>{
         return Err("Unable to read server".to_string());
       }
     };
-    if route_name=="get" {
+    if let HttpMethod::GET=request.method{
       if let Some(public) = &server.public {
         let path = &request.path[1..];
         if path.starts_with(public) {
@@ -74,17 +74,26 @@ impl HandleStream {
       if let Some(&fun) = &server.get_routes.get(&request.path){
         return Ok((request.path.clone(), Some(fun)));
       };
-    } else if route_name=="post" {
+    } else if let HttpMethod::POST=request.method {
       if let Some(&fun) = &server.post_routes.get(&request.path) {
+        return Ok((request.path.clone(), Some(fun)));
+      }
+    } else if let HttpMethod::PUT=request.method {
+      if let Some(&fun) = &server.put_routes.get(&request.path) {
+        return Ok((request.path.clone(), Some(fun)));
+      }
+    } else if let HttpMethod::DELETE=request.method {
+      if let Some(&fun) = &server.delete_routes.get(&request.path) {
         return Ok((request.path.clone(), Some(fun)));
       }
     }
 
+
     return Ok(("".to_string(), None));
   }
 
-  fn handle_get_request(&mut self, request:HttpRequest){
-    let (route, fun) = match self.get_path_fun("get", &request) {
+  fn send_get_response(&mut self, request:HttpRequest){
+    let (route, fun) = match self.get_path_fun(&request) {
       Ok((route, fun))=>(route, fun),
       Err(err)=>{
         self.server_error(&err);
@@ -110,8 +119,8 @@ impl HandleStream {
 
     }
   } 
-  fn handle_post_request(&mut self, request:HttpRequest){
-    let (route, fun) = match self.get_path_fun("post", &request) {
+  fn send_general_response(&mut self, request:HttpRequest){
+    let (route, fun) = match self.get_path_fun(&request) {
       Ok((route, fun))=>(route, fun),
       Err(err)=>{
         self.server_error(&err);
@@ -135,7 +144,7 @@ impl HandleStream {
       self.server_error("Error on finding routes!");
     }
   }
-  fn handle_option_request(&mut self){
+  fn send_option_response(&mut self){
     let mut response = HttpResponse::new();
     response.status = HttpStatusCode::NoContent;
     let headers = self.get_header(&response);

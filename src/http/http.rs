@@ -24,21 +24,21 @@ impl HttpMethod {
       "OPTIONS" => HttpMethod::OPTIONS,
       "HEAD" => HttpMethod::HEAD,
       _ => HttpMethod::OTHER(method.to_string()),
-        
+
     }
   }
 }
 impl Display for HttpMethod {
-   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self {
-           HttpMethod::GET => write!(f, "GET"),
-           HttpMethod::POST=> write!(f, "POST"),
-           HttpMethod::PUT => write!(f, "PUT"),
-           HttpMethod::PATCH => write!(f, "PATCH"),
-           HttpMethod::DELETE => write!(f, "DELETE"),
-           HttpMethod::OPTIONS => write!(f, "OPTIONS"), HttpMethod::HEAD => write!(f, "HEAD"), HttpMethod::OTHER(method) => write!(f, "{method}"),
-        }
-    } 
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match &self {
+      HttpMethod::GET => write!(f, "GET"),
+      HttpMethod::POST=> write!(f, "POST"),
+      HttpMethod::PUT => write!(f, "PUT"),
+      HttpMethod::PATCH => write!(f, "PATCH"),
+      HttpMethod::DELETE => write!(f, "DELETE"),
+      HttpMethod::OPTIONS => write!(f, "OPTIONS"), HttpMethod::HEAD => write!(f, "HEAD"), HttpMethod::OTHER(method) => write!(f, "{method}"),
+    }
+  } 
 }
 #[derive(Debug)]
 pub struct HttpRequest {

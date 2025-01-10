@@ -10,9 +10,9 @@ pub struct Server {
   pub public:Option<String>,
   pub get_routes:Routes,
   pub post_routes:Routes,
+  pub delete_routes:Routes,
+  pub put_routes:Routes,
   pub thread_num:usize,
-  // delete_routes:Routes,
-  // update_routes:Routes,
   
 }
 
@@ -24,8 +24,8 @@ impl Server {
       get_routes:HashMap::new(),
       post_routes:HashMap::new(),
       thread_num:4,
-      // delete_routes:HashMap::new(),
-      // update_routes:HashMap::new(),
+      delete_routes:HashMap::new(),
+      put_routes:HashMap::new(),
     }
   }
   pub fn set_static(&mut self, path:&str){
@@ -36,6 +36,12 @@ impl Server {
   }
   pub fn post(&mut self, path:&str, fun:RouteFn) {
     self.post_routes.insert(path.to_string(), fun);
+  }
+  pub fn put(&mut self, path:&str, fun:RouteFn) {
+    self.put_routes.insert(path.to_string(), fun);
+  }
+  pub fn delete(&mut self, path:&str, fun:RouteFn) {
+    self.delete_routes.insert(path.to_string(), fun);
   }
   pub fn run(self) {
     let addr = format!("127.0.0.1:{}", &self.port);

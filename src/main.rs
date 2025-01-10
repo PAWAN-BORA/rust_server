@@ -7,14 +7,30 @@ fn main() {
   server.get("/name", get_name);
   server.get("/sleep", hold_server);
   server.post("/send", send_json);
+  server.put("/put_data", put_data);
+  server.delete("/delete_data", delete_data);
   server.run();
 }
 
 fn get_name(request:HttpRequest, response:&mut HttpResponse){
-  // let body = request.body_as_vec().unwrap();
   let method = request.method;
   let version = request.version;
   response.send(format!("{method} {version} World"));
+}
+fn put_data(_request:HttpRequest, response:&mut HttpResponse){
+  // let body = request.body_as_vec().unwrap();
+  response.send(format!("This is put method"));
+}
+fn delete_data(request:HttpRequest, response:&mut HttpResponse){
+  let body = request.body_as_vec();
+  let mut send_str = String::from("");
+  if body.len()==0 {
+    send_str.push_str("body not found!");
+  } else {
+    let body_str = std::str::from_utf8(body).unwrap();
+    send_str.push_str(body_str);
+  }
+  response.send(format!("delete method with data: {}", send_str));
 }
 
 fn send_json(request:HttpRequest, response:&mut HttpResponse){
