@@ -1,4 +1,6 @@
-use std::{collections::HashMap, net::TcpListener, sync::{Arc, RwLock}, thread};
+use std::{collections::HashMap, sync::{Arc, RwLock}, thread};
+
+use tokio::net::TcpListener;
 
 use super::{handle_stream::HandleStream, http::{HttpRequest, HttpResponse}, thread_pool::{self, ThreadPool}};
 
@@ -43,23 +45,23 @@ impl Server {
   pub fn delete(&mut self, path:&str, fun:RouteFn) {
     self.delete_routes.insert(path.to_string(), fun);
   }
-  pub fn run(self) {
+  pub async fn run(self) {
     let addr = format!("127.0.0.1:{}", &self.port);
-    let listener = TcpListener::bind(addr).unwrap();
     let thread_pool = ThreadPool::new(self.thread_num);
     let server = Arc::new(RwLock::new(self));
-    for stream in listener.incoming() {
+    let listener = TcpListener::bind(addr).await.unwrap();
+    loop {
+      let stream_tuple = listener.accept().await;
       let server = Arc::clone(&server);
-      thread_pool.excute(move ||{
-        match stream {
-          Ok(stream)=>{
-            HandleStream::new(stream, server).parse();
+      thread_pool.excute_async(async {
+        match stream_tuple {
+          Ok((stream, _add))=>{
+            HandleStream::new(stream, server).parse().await;
           },
           Err(err)=> {println!("Error in Stream: {}", err);}
         }
       });
     }
-    println!("Shutting down.");
   }
 }
 

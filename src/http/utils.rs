@@ -1,4 +1,5 @@
-use std::{collections::HashMap, io::{BufRead, BufReader, Read, Write}, net::TcpStream, path::Path, usize};
+use std::{collections::HashMap, path::Path, usize};
+use tokio::{io::{AsyncBufReadExt, AsyncReadExt, BufReader}, net::TcpStream};
 use urlencoding::decode;
 
 use super::http::{HttpMethod, HttpRequest};
@@ -45,17 +46,46 @@ fn get_path_param(url:&String)->(String, HashMap<String, String>) {
   };
 }
 
-pub(crate) fn handle_request(stream:&mut TcpStream)->Result<HttpRequest, String>{
+pub(crate) async fn handle_request(stream:&mut TcpStream)->Result<HttpRequest, String>{
+  
+  
+  // let mut buf_reader = BufReader::new(stream);
+  // let mut buffer = [0;1024];
+  // let mut accum_buffer = Vec::new();
+  //
+  // loop {
+  //   println!("start! loop");
+  //   let n = match stream.read(&mut buffer).await {
+  //     Ok(0)=> break,
+  //     Ok(n)=> n,
+  //     Err(e)=>{
+  //       return Err(format!("Failed to read stream. Err: {e}"));
+  //     }
+  //   };
+  //   println!("{n}");
+  //   accum_buffer.extend_from_slice(&buffer[..n]);
+  //
+  //   break;
+  // }
+  // println!("{:?}", buffer);
+  //
+  // let header = HashMap::new();
+  // let params = HashMap::new();
+  // let body = vec![];
+  // let request = HttpRequest::new("get".to_string(), "1.1".to_string(), "/home".to_string(), header, params, body);
+  //
+  // return Ok(request);
+
   let mut buf_reader = BufReader::new(stream);
   let mut first_line = String::new();
-  let line_res = buf_reader.read_line(&mut first_line);
+  let line_res = buf_reader.read_line(&mut first_line).await;
   if let Ok(_status) = line_res {
     let (method, url, version) = get_status_data(first_line)?; 
     let (path, params) = get_path_param(&url);
     let mut header:HashMap<String, String> = HashMap::new();
     loop {
       let mut line = String::new();
-      buf_reader.read_line(&mut line).unwrap();
+      buf_reader.read_line(&mut line).await.unwrap();
       if line.trim().is_empty() {
         break;
       }
@@ -83,7 +113,7 @@ pub(crate) fn handle_request(stream:&mut TcpStream)->Result<HttpRequest, String>
     };
     let mut body = vec![0; content_lenght];
     if content_lenght>0 {
-      match buf_reader.read_exact(&mut body) {
+      match buf_reader.read_exact(&mut body).await {
         Ok(size)=>size,
         Err(err)=>{
           return Err(format!("Error in reading body: {err}"));
@@ -98,6 +128,7 @@ pub(crate) fn handle_request(stream:&mut TcpStream)->Result<HttpRequest, String>
     return Err("http status line not found".to_string());
   }
 }
+
 
 pub(crate) fn get_file_content(file_path:&str)->&'static str {
   let mime_types: HashMap<&str, &str> = HashMap::from([

@@ -1,7 +1,8 @@
 use std::{thread, time::Duration};
 use http::{http::{HttpRequest, HttpResponse}, server::Server};
 mod http;
-fn main() {
+#[tokio::main]
+async fn main() {
   let mut server = Server::new("7878");
   server.set_static("public");
   server.get("/name", get_name);
@@ -9,7 +10,7 @@ fn main() {
   server.post("/send", send_json);
   server.put("/put_data", put_data);
   server.delete("/delete_data", delete_data);
-  server.run();
+  server.run().await;
 }
 
 fn get_name(request:HttpRequest, response:&mut HttpResponse){

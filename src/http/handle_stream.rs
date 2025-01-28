@@ -1,4 +1,6 @@
-use std::{fs::File, io::{Read, Write}, net::TcpStream, os::unix::fs::FileExt, sync::{Arc, RwLock}, u64, u8, usize};
+use std::{fs::File, io::{Read}, os::unix::fs::FileExt, sync::{Arc, RwLock}, u64, u8, usize};
+
+use tokio::{io::AsyncWriteExt, net::TcpStream};
 
 use super::{http::{HttpMethod, HttpRequest, HttpResponse, HttpStatusCode}, server::{RouteFn, Server}, utils::{get_file_content, handle_request}};
 
@@ -16,42 +18,42 @@ impl HandleStream {
       server
     }
   }  
-  pub(crate) fn parse(&mut self){
-    match handle_request(&mut self.stream) {
+  pub(crate) async fn parse(&mut self){
+    match handle_request(&mut self.stream).await {
       Ok(http_request)=>{
         match http_request.method {
           HttpMethod::OPTIONS=> {
-            self.send_option_response();
+            self.send_option_response().await;
           }
           HttpMethod::GET => {
-            self.send_get_response(http_request);
+            self.send_get_response(http_request).await;
           }
           HttpMethod::POST=> {
-            self.send_general_response(http_request);
+            self.send_general_response(http_request).await;
           }
           HttpMethod::DELETE=> {
-            self.send_general_response(http_request);
+            self.send_general_response(http_request).await;
           }
           HttpMethod::PUT=> {
-            self.send_get_response(http_request);
+            self.send_get_response(http_request).await;
           }
           HttpMethod::HEAD=> {
             let mut response = HttpResponse::new();
             response.status = HttpStatusCode::NoContent;
             let header = self.get_header(&response);
-            self.send_response(header.as_bytes());
+            self.send_response(header.as_bytes()).await;
           }
           HttpMethod::PATCH=> {
-            self.not_found("Patch method not found!");
+            self.not_found("Patch method not found!").await;
           }
           HttpMethod::OTHER(val) =>{
             let method_str = format!("{} method not found!", val);
-            self.not_found(&method_str);
+            self.not_found(&method_str).await;
           }
         } 
       }
       Err(err)=>{
-        self.server_error(&err);
+        self.server_error(&err).await;
       }
     }
     
@@ -92,11 +94,11 @@ impl HandleStream {
     return Ok(("".to_string(), None));
   }
 
-  fn send_get_response(&mut self, request:HttpRequest){
+  async fn send_get_response(&mut self, request:HttpRequest){
     let (route, fun) = match self.get_path_fun(&request) {
       Ok((route, fun))=>(route, fun),
       Err(err)=>{
-        self.server_error(&err);
+        self.server_error(&err).await;
         return;
       }
     };
@@ -109,21 +111,21 @@ impl HandleStream {
         None=>"".to_string()
       };
       response.set_header("Content-Length".to_string(), content.len().to_string());
-      self.send_response(headers.as_bytes());
-      self.send_response(content.as_bytes());
+      self.send_response(headers.as_bytes()).await;
+      self.send_response(content.as_bytes()).await;
       // return;
     } else if route.is_empty() {
-      self.not_found("Route Not Available!");
+      self.not_found("Route Not Available!").await;
     } else {
-      self.serve_static_files(&route, request);
+      self.serve_static_files(&route, request).await;
 
     }
   } 
-  fn send_general_response(&mut self, request:HttpRequest){
+  async fn send_general_response(&mut self, request:HttpRequest){
     let (route, fun) = match self.get_path_fun(&request) {
       Ok((route, fun))=>(route, fun),
       Err(err)=>{
-        self.server_error(&err);
+        self.server_error(&err).await;
         return;
       }
     };
@@ -136,19 +138,19 @@ impl HandleStream {
       };
       response.set_header("Content-Length".to_string(), content.len().to_string());
       let headers = self.get_header(&response);
-      self.send_response(headers.as_bytes());
-      self.send_response(content.as_bytes());
+      self.send_response(headers.as_bytes()).await;
+      self.send_response(content.as_bytes()).await;
     } else if route.is_empty() {
-      self.not_found("Route Not Found!");
+      self.not_found("Route Not Found!").await;
     } else {
-      self.server_error("Error on finding routes!");
+      self.server_error("Error on finding routes!").await;
     }
   }
-  fn send_option_response(&mut self){
+  async fn send_option_response(&mut self){
     let mut response = HttpResponse::new();
     response.status = HttpStatusCode::NoContent;
     let headers = self.get_header(&response);
-    self.send_response(headers.as_bytes());
+    self.send_response(headers.as_bytes()).await;
   }
   fn get_range(&self, request:&HttpRequest)->Option<(u64, u64)>{
     let chunk_size = 1024*1024*1;
@@ -165,7 +167,7 @@ impl HandleStream {
     };
     None
   }
-  fn serve_static_files(&mut self, path:&str, request:HttpRequest){
+  async fn serve_static_files(&mut self, path:&str, request:HttpRequest){
     let mut response = HttpResponse::new();
     let file = File::open(path);
     response.set_header("Content-Type".to_string(), get_file_content(path).to_string());
@@ -176,36 +178,36 @@ impl HandleStream {
             Ok(metadata)=>metadata.len(),
             _=>0,
           };
-          self.send_chunk(start_byte, end_byte, file_size, file, response);
+          self.send_chunk(start_byte, end_byte, file_size, file, response).await;
           return;
         };
 
-        self.send_whole_file(file, response);
+        self.send_whole_file(file, response).await;
         return;
       },
       Err(err)=>{
         println!("Error in reading file {}", err);
-        self.server_error(&err.to_string());
+        self.server_error(&err.to_string()).await;
       }
     }
 
   }
-  fn send_whole_file(&mut self, mut file:File, mut response:HttpResponse){
+  async fn send_whole_file(&mut self, mut file:File, mut response:HttpResponse){
     let mut data:Vec<u8> = vec![];
     match file.read_to_end(&mut data){
       Ok(_)=>{
         response.set_header("Content-Length".to_string(), data.len().to_string());
         let headers = self.get_header(&response);
-        self.send_response(headers.as_bytes());
-        self.send_response(&data);
+        self.send_response(headers.as_bytes()).await;
+        self.send_response(&data).await;
       },
       Err(err)=>{
         println!("Error on reading file: {err}");
-        self.server_error(&err.to_string());
+        self.server_error(&err.to_string()).await;
       }
     }
   }
-  fn send_chunk(&mut self, start_byte:u64, mut end_byte:u64, file_size:u64, file:File, mut response:HttpResponse) {
+  async fn send_chunk(&mut self, start_byte:u64, mut end_byte:u64, file_size:u64, file:File, mut response:HttpResponse) {
     if file_size <= end_byte {
       end_byte = file_size-1;
     };
@@ -218,31 +220,31 @@ impl HandleStream {
         response.set_header("Content-Range".to_string(), range);
         response.set_header("Content-Length".to_string(), data.len().to_string());
         let headers = self.get_header(&response);
-        self.send_response(headers.as_bytes());
-        self.send_response(&data);
+        self.send_response(headers.as_bytes()).await;
+        self.send_response(&data).await;
       }
       Err(err)=>{
         println!("Error on reading chunk: {err}");
-        self.server_error(&err.to_string());
+        self.server_error(&err.to_string()).await;
       }
     };
 
   }
-  fn server_error(&mut self, err:&str){
+  async fn server_error(&mut self, err:&str){
     let mut response = HttpResponse::new();
     response.status = HttpStatusCode::InternalServerError;
     response.set_header("Content-Length".to_string(), err.len().to_string());
     let header_part = self.get_header(&response);
-    self.send_response(header_part.as_bytes());
-    self.send_response(err.as_bytes());
+    self.send_response(header_part.as_bytes()).await;
+    self.send_response(err.as_bytes()).await;
   }
-  fn not_found(&mut self, err:&str){
+  async fn not_found(&mut self, err:&str){
     let mut response = HttpResponse::new();
     response.status = HttpStatusCode::NotFound;
     response.set_header("Content-Length".to_string(), err.len().to_string());
     let header_part = self.get_header(&response);
-    self.send_response(header_part.as_bytes());
-    self.send_response(err.as_bytes());
+    self.send_response(header_part.as_bytes()).await;
+    self.send_response(err.as_bytes()).await;
   }
   fn get_header(&self, response:&HttpResponse)->String{
     let status_line = format!("HTTP/1.1 {}", response.status);
@@ -253,12 +255,12 @@ impl HandleStream {
     }
     format!("{}{}\r\n\r\n", status_line, header)
   }
-  fn send_response(&mut self, data:&[u8]){
-    if let Err(err) = self.stream.write_all(data) {
+  async fn send_response(&mut self, data:&[u8]){
+    if let Err(err) = self.stream.write_all(data).await {
       println!("Error on sending data: {}", err);
       return;
     };
-    if let Err(err) = self.stream.flush() {
+    if let Err(err) = self.stream.flush().await {
       println!("Error on flushing data: {}", err);
     }
 

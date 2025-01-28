@@ -1,11 +1,14 @@
 use std::{sync::{mpsc, Arc, Mutex}, thread};
 
+use tokio::runtime::Runtime;
+
 
 type Job = Box<dyn FnOnce()+Send+'static>;
 
 pub(crate) struct ThreadPool {
   workers:Vec<Worker>,
-  sender:Option<mpsc::Sender<Job>>
+  sender:Option<mpsc::Sender<Job>>,
+  runtime:Arc<Runtime>
 }
 
 impl ThreadPool {
@@ -17,14 +20,22 @@ impl ThreadPool {
     for id in 0..size {
       workers.push(Worker::new(id, Arc::clone(&receiver)));
     }
+    let runtime = Arc::new(Runtime::new().unwrap());
     ThreadPool {
       workers:workers,
       sender:Some(sender),
+      runtime:runtime
     }
   }
   pub fn excute<F>(&self, f:F) where F:FnOnce()+Send+'static {
     let job = Box::new(f);
     self.sender.as_ref().unwrap().send(job).unwrap()
+  }
+  pub fn excute_async<Fut>(&self, f:Fut) where Fut:std::future::Future<Output = ()> + Send + 'static {
+    let runtime = Arc::clone(&self.runtime);
+    self.excute(move || {
+      runtime.spawn(f);
+    });
   }
 }
 
